@@ -1,50 +1,72 @@
 # Windows Scrubber
 
-A fresh Windows setup and cleanup script for quickly turning a new install into a clean workstation.
+A small PowerShell scrubber for fresh Windows installs. It cleans up noisy defaults, installs a few workstation basics, then offers optional extras you can run only if you want them.
 
 ## Quick Run
 
-Run this from PowerShell:
+Run from PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/r4kk0/windows-scrubber/main/install.ps1 | iex
 ```
 
-The launcher stages files under `%TEMP%\windows-scrubber\`, sets execution policy bypass for the current PowerShell process only, and runs the baseline. It downloads `tweaks/baseline.ps1` and `lib/helpers.ps1`; the baseline dot-sources helpers from `lib/helpers.ps1`.
+The launcher stages the required files under `%TEMP%\windows-scrubber\`, keeps the same repo folder layout, sets execution policy bypass for the current PowerShell process only, then runs `tweaks/baseline.ps1`.
 
-## What It Does
+It downloads only:
 
-Windows Scrubber runs a staged baseline:
+- `tweaks/baseline.ps1`
+- `lib/helpers.ps1`
+- `modules/cleanout.ps1`
+- `modules/buildup.ps1`
+- `modules/optional.ps1`
+- `modules/summary.ps1`
 
-- `STAGE 00: Preflight` checks Administrator status and `winget` availability.
-- `STAGE 01: Cleanout` applies privacy, search, recommendation, app startup, OneDrive, Edge, Start menu, and baseline Store app cleanup.
-- `STAGE 02: Buildup` installs Chrome, applies Chrome default association support, sets desktop/wallpaper preferences, shows file extensions and hidden files, disables mouse acceleration, prefers IPv4, and applies taskbar preferences.
-- `STAGE END: Summary` prints a readable PASS/WARN/INFO summary of key settings and detected app state.
+## What Happens
 
-Some Windows changes may not appear immediately. Explorer restart, sign out, or a reboot may be required for certain Start menu, desktop, taskbar, default app, or policy changes.
+Windows Scrubber runs in stages:
 
-## Optional Modules
+- `STAGE 00: Preflight`: checks Administrator status and `winget`.
+- `STAGE 01: Cleanout`: applies privacy, search, recommendations, Start menu, Store bloat, Widgets, Copilot, OneDrive, Edge, startup, Store auto-update, and Windows Search indexing cleanup.
+- `STAGE 02: Buildup`: installs Chrome and 7-Zip, prepares Chrome defaults, sets desktop/wallpaper preferences, shows file extensions and hidden files, disables mouse acceleration, prefers IPv4, and applies taskbar preferences.
+- `STAGE END: Summary`: prints PASS/WARN/INFO checks for the important bits.
 
-After the baseline finishes, an optional menu is shown. These modules run only when explicitly selected:
+Some changes need Explorer restart, sign out, or a reboot before Windows fully shows them.
+
+## Optional Extras
+
+After the baseline, you can run extra tools from a menu:
 
 - Remove Xbox / Game Bar / Game DVR packages and disable capture features
 - Enable Remote Desktop
 - Configure automatic local sign-in
 - Configure a no-sleep power plan
-- Placeholders for future aggressive cleanup modules
+- Leave the menu with `Q`, `q`, or Enter
 
-Optional modules ask for confirmation where appropriate and are not part of the default baseline.
+Optional tools are not part of the default baseline, and the risky ones ask before doing anything exciting.
+
+## Project Layout
+
+- `install.ps1`: remote launcher and temp staging.
+- `tweaks/baseline.ps1`: entrypoint, prompts, module loading, and stage order.
+- `lib/helpers.ps1`: shared helper functions.
+- `modules/cleanout.ps1`: cleanup stage functions.
+- `modules/buildup.ps1`: setup/buildout stage functions.
+- `modules/optional.ps1`: optional menu and extra tools.
+- `modules/summary.ps1`: final summary checks.
+
+`baseline.ps1` loads helpers and modules with paths based on `$PSScriptRoot`, and fails clearly if a required file is missing.
 
 ## Safety Notes
 
-- The script does not delete user documents, downloads, images, or folders.
-- Desktop cleanup removes only `.lnk` shortcut files from the current and Public Desktop.
-- Edge cleanup is conservative and diagnostic; it does not remove WebView2 Runtime or user browser data.
+- It is meant for fresh installs and rebuilds.
+- It does not delete user documents, downloads, images, or folders.
+- Desktop cleanup removes only `.lnk` shortcuts from the current and Public Desktop.
 - OneDrive removal does not delete files from OneDrive folders.
+- Edge cleanup preserves WebView2 Runtime and user browser data.
 - Microsoft Store, App Installer/winget, common system apps, and protected Windows components are intentionally preserved.
-- Some HKLM/system changes require running PowerShell as Administrator; non-admin runs skip those parts where possible.
+- Non-admin runs skip admin-only changes where possible.
 
-## Local Testing
+## Local Run
 
 From the repo root:
 
@@ -52,10 +74,10 @@ From the repo root:
 .\install.ps1
 ```
 
-To run the baseline script directly:
+Or run the baseline directly:
 
 ```powershell
 .\tweaks\baseline.ps1
 ```
 
-Review scripts before running them on a machine you care about. This project is intended for fresh installs and rebuilds where quick workstation setup matters more than preserving the default Windows experience.
+Have a look through the scripts before running them on a machine you care about. Tiny bit boring, very worth it.
