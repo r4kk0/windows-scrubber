@@ -26,6 +26,17 @@ function Write-Skip {
     Write-Host "SKIP: $Message"
 }
 
+function Write-Stage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-Host ""
+    Write-Host $Message
+    Write-Host ("-" * $Message.Length)
+}
+
 function Set-RegistryDword {
     param(
         [Parameter(Mandatory = $true)]
@@ -272,12 +283,78 @@ function Install-Chrome {
             return
         }
 
-        & winget install --id Google.Chrome --exact --accept-source-agreements --accept-package-agreements --silent
+        $wingetOutput = & winget install --id Google.Chrome --exact --accept-source-agreements --accept-package-agreements --silent 2>&1
+        $wingetExitCode = $LASTEXITCODE
+        $wingetText = $wingetOutput -join "`n"
 
-        if ($LASTEXITCODE -eq 0) {
+        if ($wingetExitCode -eq 0) {
             Write-Host "Google Chrome install completed successfully."
+        } elseif ($wingetText -match "already installed|No available upgrade found|No newer package versions are available") {
+            Write-Host "Google Chrome is already installed and no newer package is available."
         } else {
-            Write-Skip "Google Chrome install did not complete successfully. winget exited with code $LASTEXITCODE."
+            Write-Skip "Google Chrome install did not complete successfully. winget exited with code $wingetExitCode."
+        }
+    }
+}
+
+function Remove-OneDrive {
+    Invoke-Tweak "Remove OneDrive" {
+        if (-not (Test-IsAdmin)) {
+            Write-Skip "Administrator rights are required to remove OneDrive."
+            return
+        }
+
+        $oneDriveProcesses = Get-Process -Name "OneDrive" -ErrorAction SilentlyContinue
+
+        if ($oneDriveProcesses) {
+            Write-Host "Stopping OneDrive..."
+            $oneDriveProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Host "OneDrive is not running."
+        }
+
+        $uninstallers = @(
+            (Join-Path $env:SystemRoot "System32\OneDriveSetup.exe"),
+            (Join-Path $env:SystemRoot "SysWOW64\OneDriveSetup.exe")
+        )
+
+        foreach ($uninstaller in $uninstallers) {
+            if (Test-Path $uninstaller) {
+                Write-Host "Running OneDrive uninstaller: $uninstaller"
+
+                try {
+                    $process = Start-Process -FilePath $uninstaller -ArgumentList "/uninstall" -Wait -PassThru
+
+                    if ($process.ExitCode -eq 0) {
+                        Write-Host "OneDrive uninstaller completed successfully."
+                    } else {
+                        Write-Skip "OneDrive uninstaller exited with code $($process.ExitCode): $uninstaller"
+                    }
+                } catch {
+                    Write-Skip "Could not run OneDrive uninstaller: $uninstaller. $($_.Exception.Message)"
+                }
+            } else {
+                Write-Host "OneDrive uninstaller not found: $uninstaller"
+            }
+        }
+
+        Remove-RegistryValueIfExists -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive"
+        Remove-RegistryValueIfExists -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive"
+
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" -Name "DisableFileSyncNGSC" -Value 1
+
+        $explorerIntegrationPaths = @(
+            "HKCU:\Software\Classes\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}",
+            "HKLM:\SOFTWARE\Classes\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}",
+            "HKLM:\SOFTWARE\Classes\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}"
+        )
+
+        foreach ($path in $explorerIntegrationPaths) {
+            if (Test-Path $path) {
+                Set-RegistryDword -Path $path -Name "System.IsPinnedToNameSpaceTree" -Value 0
+            } else {
+                Write-Host "OneDrive Explorer integration key not found: $path"
+            }
         }
     }
 }
@@ -294,21 +371,29 @@ function Prefer-IPv4OverIPv6 {
     }
 }
 
+Write-Stage "STAGE 00: Preflight"
+Write-Host "Running as Administrator: $(Test-IsAdmin)"
+Write-Host "winget available: $([bool](Get-Command winget -ErrorAction SilentlyContinue))"
+
+Write-Stage "STAGE 01: Cleanout"
 Disable-AdvertisingId
 Disable-TailoredExperiences
 Disable-FeedbackPrompts
 Disable-ActivityHistory
-Prefer-IPv4OverIPv6
-Install-Chrome
+Disable-ConsumerFeatures
+Disable-LocationTracking
 Disable-StartMenuBingSearch
+Disable-StartMenuRecommendations
+Disable-Widgets
+Disable-Copilot
+Remove-OneDrive
+Disable-AppAutoStartEntries
+
+Write-Stage "STAGE 02: Buildup"
+Install-Chrome
 Show-FileExtensions
 Show-HiddenFiles
 Disable-MouseAcceleration
-Disable-ConsumerFeatures
-Disable-LocationTracking
-Disable-Widgets
-Disable-Copilot
-Disable-StartMenuRecommendations
+Prefer-IPv4OverIPv6
 Disable-TaskbarSearchIcon
 Disable-TaskbarTaskViewIcon
-Disable-AppAutoStartEntries
