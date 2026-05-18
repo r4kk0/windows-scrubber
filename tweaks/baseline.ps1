@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 $script:StartMenuCleanupAttempted = $false
 $script:BaselineStoreBloatCleanupRan = $false
 $script:DesktopShortcutCleanupAttempted = $false
+$script:SearchIndexingOptimizationAttempted = $false
 
 function Test-IsAdmin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1176,6 +1177,94 @@ function Set-NoSleepPowerPlan {
     }
 }
 
+function Optimize-WindowsSearchIndexing {
+    Invoke-Tweak "Optimise Windows Search indexing" {
+        if (-not (Test-IsAdmin)) {
+            Write-Skip "Administrator rights are required to optimise Windows Search indexing."
+            return
+        }
+
+        Write-Host "WARN: This reduces Windows indexing scope. It should improve background load, but file search may become less complete."
+        $confirmation = Read-Host "Optimise Windows Search indexing? (y/N)"
+
+        if ($confirmation -notin @("y", "Y")) {
+            Write-Host "INFO: Windows Search indexing optimisation cancelled."
+            return
+        }
+
+        $script:SearchIndexingOptimizationAttempted = $true
+        $searchService = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
+
+        if ($searchService) {
+            Write-Host "INFO: Windows Search service is preserved. Current status: $($searchService.Status)"
+        } else {
+            Write-Host "INFO: Windows Search service was not found."
+        }
+
+        $systemDrive = $env:SystemDrive.TrimEnd("\")
+        $fixedDrives = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType = 3" -ErrorAction SilentlyContinue
+
+        foreach ($drive in $fixedDrives) {
+            $driveRoot = $drive.DeviceID.TrimEnd("\")
+
+            if ($driveRoot -ieq $systemDrive) {
+                Write-Host "INFO: Skipping system drive indexing attribute change: $driveRoot"
+                continue
+            }
+
+            try {
+                $attribTarget = "$driveRoot\*"
+                $attribOutput = & attrib -I $attribTarget /S /D 2>&1
+                $attribExitCode = $LASTEXITCODE
+
+                if ($attribExitCode -eq 0) {
+                    Write-Host "PASS: Disabled indexing attribute on fixed drive: $driveRoot"
+                } else {
+                    Write-Host "WARN: attrib indexing update exited with code $attribExitCode for $driveRoot"
+                    $attribText = ($attribOutput | Out-String).Trim()
+
+                    if ($attribText -and ($attribText.Length -le 400)) {
+                        Write-Host $attribText
+                    }
+                }
+            } catch {
+                Write-Host "WARN: Could not update indexing attribute on ${driveRoot}: $($_.Exception.Message)"
+            }
+        }
+
+        # Keep search service enabled, but reduce web suggestions and noisy indexing scope.
+        Set-RegistryDword -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1
+        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Value 0
+        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Value 0
+
+        # Do not index encrypted items.
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowIndexingEncryptedStoresOrItems" -Value 0
+
+        # Avoid indexing uncached Exchange folders when applicable.
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "PreventIndexingUncachedExchangeFolders" -Value 1
+
+        $rebuild = Read-Host "Rebuild Windows Search index now? This can take time. (y/N)"
+
+        if ($rebuild -notin @("y", "Y")) {
+            Write-Host "INFO: Windows Search index rebuild skipped."
+            return
+        }
+
+        if (-not $searchService) {
+            Write-Host "INFO: Windows Search service was not found; index restart skipped."
+            return
+        }
+
+        try {
+            Stop-Service -Name "WSearch" -ErrorAction Stop
+            Start-Service -Name "WSearch" -ErrorAction Stop
+            Write-Host "PASS: Windows Search service restarted for index rebuild."
+        } catch {
+            Write-Host "WARN: Could not restart Windows Search service: $($_.Exception.Message)"
+        }
+    }
+}
+
 function Show-OptionalModulesMenu {
     Write-Stage "OPTIONAL MODULES"
     Write-Host "1. Remove Xbox / Game Bar / Game DVR packages and disable capture features"
@@ -1184,6 +1273,7 @@ function Show-OptionalModulesMenu {
     Write-Host "4. Enable Remote Desktop"
     Write-Host "5. Configure automatic local sign-in"
     Write-Host "7. Configure no-sleep power plan"
+    Write-Host "8. Optimise Windows Search indexing"
     Write-Host "Q. Quit"
 }
 
@@ -1199,6 +1289,7 @@ function Invoke-OptionalModulesMenu {
             "4" { Enable-RemoteDesktop }
             "5" { Invoke-AutoLogonMenu }
             "7" { Set-NoSleepPowerPlan }
+            "8" { Optimize-WindowsSearchIndexing }
             "Q" { Write-Host "INFO: Optional modules skipped."; return }
             "q" { Write-Host "INFO: Optional modules skipped."; return }
             "" { Write-Host "INFO: Optional modules skipped."; return }
@@ -1412,6 +1503,25 @@ if ($null -ne $acMonitorTimeout) {
     Write-SummaryItem -Status "INFO" -Message "Current AC monitor timeout: $acMonitorTimeout seconds"
 } else {
     Write-SummaryItem -Status "INFO" -Message "Current AC monitor timeout could not be read"
+}
+
+$windowsSearchService = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
+if ($windowsSearchService) {
+    Write-SummaryItem -Status "INFO" -Message "Windows Search service exists"
+
+    if ($windowsSearchService.Status -eq "Running") {
+        Write-SummaryItem -Status "INFO" -Message "Windows Search service is running"
+    } else {
+        Write-SummaryItem -Status "INFO" -Message "Windows Search service status: $($windowsSearchService.Status)"
+    }
+} else {
+    Write-SummaryItem -Status "INFO" -Message "Windows Search service not found"
+}
+
+if ($script:SearchIndexingOptimizationAttempted) {
+    Write-SummaryItem -Status "INFO" -Message "Windows Search indexing optimisation attempted"
+} else {
+    Write-SummaryItem -Status "INFO" -Message "Windows Search indexing optimisation did not run"
 }
 
 $xboxPackages = Get-AppxPackage -Name "Microsoft.Xbox*" -ErrorAction SilentlyContinue
