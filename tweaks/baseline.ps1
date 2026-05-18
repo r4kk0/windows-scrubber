@@ -1363,8 +1363,6 @@ function Show-OptionalModulesMenu {
     Write-Host "4. Enable Remote Desktop"
     Write-Host "5. Configure automatic local sign-in"
     Write-Host "7. Configure no-sleep power plan"
-    Write-Host "8. Optimise Windows Search indexing"
-    Write-Host "9. Disable Microsoft Store auto-updates"
     Write-Host "Q. Quit"
 }
 
@@ -1380,8 +1378,6 @@ function Invoke-OptionalModulesMenu {
             "4" { Enable-RemoteDesktop }
             "5" { Invoke-AutoLogonMenu }
             "7" { Set-NoSleepPowerPlan }
-            "8" { Optimize-WindowsSearchIndexing }
-            "9" { Disable-StoreAutoUpdates }
             "Q" { Write-Host "INFO: Optional modules skipped."; return }
             "q" { Write-Host "INFO: Optional modules skipped."; return }
             "" { Write-Host "INFO: Optional modules skipped."; return }
@@ -1401,6 +1397,8 @@ Disable-FeedbackPrompts
 Disable-ActivityHistory
 Disable-ConsumerFeatures
 Disable-StoreConsumerChurn
+Disable-StoreAutoUpdates
+Optimize-WindowsSearchIndexing
 Disable-LocationTracking
 Disable-StartMenuBingSearch
 Disable-StartMenuRecommendations
