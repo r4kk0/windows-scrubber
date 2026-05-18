@@ -906,12 +906,124 @@ function Enable-RemoteDesktop {
     }
 }
 
+function Enable-AutoLogon {
+    Invoke-Tweak "Enable automatic local sign-in" {
+        if (-not (Test-IsAdmin)) {
+            Write-Skip "Administrator rights are required to configure automatic local sign-in."
+            return
+        }
+
+        Write-Host "WARN: This keeps the account password but allows Windows to sign in automatically at boot."
+        Write-Host "WARN: Registry AutoAdminLogon stores the password in Winlogon registry values. Only use this on trusted machines."
+        $confirmation = Read-Host "Continue? (y/N)"
+
+        if ($confirmation -notin @("y", "Y")) {
+            Write-Host "INFO: Automatic local sign-in setup cancelled."
+            return
+        }
+
+        $username = Read-Host "Username"
+
+        if ([string]::IsNullOrWhiteSpace($username)) {
+            Write-Host "WARN: Username was empty. Automatic local sign-in was not configured."
+            return
+        }
+
+        $securePassword = Read-Host "Password" -AsSecureString
+        $domainName = Read-Host "Domain/computer name [$env:COMPUTERNAME]"
+
+        if ([string]::IsNullOrWhiteSpace($domainName)) {
+            $domainName = $env:COMPUTERNAME
+        }
+
+        $passwordPointer = [IntPtr]::Zero
+        $plainPassword = $null
+
+        try {
+            $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+            $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+
+            $path = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+
+            if (-not (Test-Path $path)) {
+                New-Item -Path $path -Force | Out-Null
+            }
+
+            New-ItemProperty -Path $path -Name "AutoAdminLogon" -Value "1" -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $path -Name "DefaultUserName" -Value $username -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $path -Name "DefaultPassword" -Value $plainPassword -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $path -Name "DefaultDomainName" -Value $domainName -PropertyType String -Force | Out-Null
+
+            Write-Host "PASS: Automatic local sign-in configured."
+            Write-Host "INFO: Password was written to Winlogon registry values and was not printed."
+        } catch {
+            Write-Host "WARN: Could not configure automatic local sign-in: $($_.Exception.Message)"
+        } finally {
+            if ($passwordPointer -ne [IntPtr]::Zero) {
+                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
+            }
+
+            $plainPassword = $null
+        }
+    }
+}
+
+function Disable-AutoLogon {
+    Invoke-Tweak "Disable automatic local sign-in" {
+        if (-not (Test-IsAdmin)) {
+            Write-Skip "Administrator rights are required to disable automatic local sign-in."
+            return
+        }
+
+        $path = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+
+        try {
+            if (-not (Test-Path $path)) {
+                Write-Host "INFO: Winlogon registry path was not found."
+                return
+            }
+
+            New-ItemProperty -Path $path -Name "AutoAdminLogon" -Value "0" -PropertyType String -Force | Out-Null
+            Write-Host "PASS: Automatic local sign-in disabled."
+
+            Remove-RegistryValueIfExists -Path $path -Name "DefaultPassword"
+            Write-Host "INFO: DefaultPassword removed if it was present."
+        } catch {
+            Write-Host "WARN: Could not disable automatic local sign-in: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Show-AutoLogonMenu {
+    Write-Stage "AUTOMATIC LOCAL SIGN-IN"
+    Write-Host "1. Enable automatic local sign-in"
+    Write-Host "2. Disable automatic local sign-in"
+    Write-Host "Q. Back"
+}
+
+function Invoke-AutoLogonMenu {
+    while ($true) {
+        Show-AutoLogonMenu
+        $selection = Read-Host "Select automatic sign-in option"
+
+        switch ($selection) {
+            "1" { Enable-AutoLogon; return }
+            "2" { Disable-AutoLogon; return }
+            "Q" { Write-Host "INFO: Returning to optional modules."; return }
+            "q" { Write-Host "INFO: Returning to optional modules."; return }
+            "" { Write-Host "INFO: Returning to optional modules."; return }
+            default { Write-Host "INFO: Invalid selection. Choose an option or press Enter to go back." }
+        }
+    }
+}
+
 function Show-OptionalModulesMenu {
     Write-Stage "OPTIONAL MODULES"
     Write-Host "1. Remove Xbox / Game Bar / Game DVR packages and disable capture features"
     Write-Host "2. Aggressive Microsoft Store app cleanup"
     Write-Host "3. Aggressive Edge cleanup placeholder"
     Write-Host "4. Enable Remote Desktop"
+    Write-Host "5. Configure automatic local sign-in"
     Write-Host "Q. Quit"
 }
 
@@ -925,6 +1037,7 @@ function Invoke-OptionalModulesMenu {
             "2" { Write-Host "INFO: Not implemented yet." }
             "3" { Write-Host "INFO: Not implemented yet." }
             "4" { Enable-RemoteDesktop }
+            "5" { Invoke-AutoLogonMenu }
             "Q" { Write-Host "INFO: Optional modules skipped."; return }
             "q" { Write-Host "INFO: Optional modules skipped."; return }
             "" { Write-Host "INFO: Optional modules skipped."; return }
@@ -1084,6 +1197,13 @@ if ($rdpTcpSettings.UserAuthentication -eq 1) {
     Write-SummaryItem -Status "WARN" -Message "Remote Desktop Network Level Authentication appears disabled"
 } else {
     Write-SummaryItem -Status "INFO" -Message "Remote Desktop Network Level Authentication setting not found"
+}
+
+$winlogonSettings = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -ErrorAction SilentlyContinue
+if ($winlogonSettings.AutoAdminLogon -eq "1") {
+    Write-SummaryItem -Status "WARN" -Message "Automatic local sign-in appears enabled"
+} else {
+    Write-SummaryItem -Status "INFO" -Message "Automatic local sign-in appears disabled"
 }
 
 $xboxPackages = Get-AppxPackage -Name "Microsoft.Xbox*" -ErrorAction SilentlyContinue
