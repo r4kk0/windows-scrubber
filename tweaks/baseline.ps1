@@ -12,6 +12,36 @@ if (-not (Test-Path $HelpersPath)) {
 
 . $HelpersPath
 
+function Show-Welcome {
+    Write-Host ""
+    Write-Host "Windows Scrubber"
+    Write-Host "Fresh install cleanup + workstation setup"
+    Write-Host ""
+    Write-Host "This script applies an opinionated baseline cleanup, installs basic tools, and then offers optional modules."
+    Write-Host "Review the README/source before running on important machines."
+    Write-Host ""
+
+    $confirmation = Read-Host "Run the standard Windows Scrubber baseline now? (Y/n)"
+
+    switch ($confirmation) {
+        "" { return }
+        "Y" { return }
+        "y" { return }
+        "N" {
+            Write-Host "INFO: Baseline skipped by user."
+            exit 0
+        }
+        "n" {
+            Write-Host "INFO: Baseline skipped by user."
+            exit 0
+        }
+        default {
+            Write-Host "INFO: No valid confirmation received. Exiting."
+            exit 0
+        }
+    }
+}
+
 function Disable-AdvertisingId {
     Invoke-Tweak "Disable Advertising ID for current user" {
         Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0
@@ -1292,6 +1322,8 @@ function Invoke-OptionalModulesMenu {
         }
     }
 }
+
+Show-Welcome
 
 Write-Stage "STAGE 00: Preflight"
 Write-Host "Running as Administrator: $(Test-IsAdmin)"
