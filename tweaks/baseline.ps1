@@ -1307,22 +1307,23 @@ function Disable-StoreAutoUpdates {
 }
 
 function Show-OptionalModulesMenu {
-    Write-ScrubberStage "Optional cleanup tools"
+    Write-ScrubberStage "Extra scrubbers"
     Write-Host "Choose an extra scrubber, or press Q to quit."
     Write-Host ""
-    Write-Host "1. Remove Xbox / Game Bar / Game DVR packages and disable capture features"
-    Write-Host "2. Aggressive Microsoft Store app cleanup (coming soon)"
-    Write-Host "3. Aggressive Edge cleanup (coming soon)"
-    Write-Host "4. Enable Remote Desktop"
-    Write-Host "5. Configure automatic local sign-in"
-    Write-Host "7. Configure no-sleep power plan"
-    Write-Host "Q. Quit"
+    Write-Host "[1] Remove Xbox / Game Bar / Game DVR packages and disable capture features"
+    Write-Host "[2] Aggressive Microsoft Store app cleanup (coming soon)"
+    Write-Host "[3] Aggressive Edge cleanup (coming soon)"
+    Write-Host "[4] Enable Remote Desktop"
+    Write-Host "[5] Configure automatic local sign-in"
+    Write-Host "[6] Reserved / coming soon"
+    Write-Host "[7] Configure no-sleep power plan"
+    Write-Host "[Q] Quit"
 }
 
 function Invoke-OptionalModulesMenu {
     while ($true) {
         Show-OptionalModulesMenu
-        $selection = Read-Host "Select optional module"
+        $selection = Read-Host "Choose an option"
 
         switch ($selection) {
             "1" { Remove-XboxGamingFeatures }
