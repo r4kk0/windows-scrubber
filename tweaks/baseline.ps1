@@ -334,6 +334,68 @@ function Install-Chrome {
     }
 }
 
+function Set-ChromeDefaults {
+    Invoke-Tweak "Set Chrome defaults" {
+        $chromePaths = @(
+            (Join-Path $env:ProgramFiles "Google\Chrome\Application\chrome.exe"),
+            (Join-Path ${env:ProgramFiles(x86)} "Google\Chrome\Application\chrome.exe")
+        )
+
+        if (-not (Test-PathExists -Path $chromePaths)) {
+            Write-Skip "Chrome executable was not found. Default app associations will not be changed."
+            return
+        }
+
+        $associationsPath = Join-Path $env:TEMP "zerowin-default-apps.xml"
+        $associationsXml = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<DefaultAssociations>
+  <Association Identifier=".htm" ProgId="ChromeHTML" ApplicationName="Google Chrome" />
+  <Association Identifier=".html" ProgId="ChromeHTML" ApplicationName="Google Chrome" />
+  <Association Identifier="http" ProgId="ChromeHTML" ApplicationName="Google Chrome" />
+  <Association Identifier="https" ProgId="ChromeHTML" ApplicationName="Google Chrome" />
+</DefaultAssociations>
+"@
+
+        try {
+            Set-Content -Path $associationsPath -Value $associationsXml -Encoding UTF8
+            Write-Host "PASS: Chrome default associations XML created: $associationsPath"
+        } catch {
+            Write-Skip "Could not create Chrome default associations XML: $($_.Exception.Message)"
+            return
+        }
+
+        if (Test-IsAdmin) {
+            try {
+                $dismOutput = & DISM /Online "/Import-DefaultAppAssociations:$associationsPath" 2>&1
+                $dismExitCode = $LASTEXITCODE
+
+                if ($dismExitCode -eq 0) {
+                    Write-Host "PASS: Chrome default associations import completed."
+                } else {
+                    Write-Host "WARN: Chrome default associations import exited with code $dismExitCode."
+                    if ($dismOutput) {
+                        Write-Host ($dismOutput -join "`n")
+                    }
+                }
+            } catch {
+                Write-Skip "Could not import Chrome default associations: $($_.Exception.Message)"
+            }
+        } else {
+            Write-Skip "Administrator rights are required to import default app associations with DISM."
+        }
+
+        Write-Host "WARN: Chrome default association import may require new user/first logon."
+
+        try {
+            Start-Process "ms-settings:defaultapps"
+            Write-Host "INFO: Opened Default Apps settings for manual confirmation."
+        } catch {
+            Write-Skip "Could not open Default Apps settings: $($_.Exception.Message)"
+        }
+    }
+}
+
 function Remove-OneDrive {
     Invoke-Tweak "Remove OneDrive" {
         if (-not (Test-IsAdmin)) {
@@ -597,6 +659,7 @@ Disable-AppAutoStartEntries
 
 Write-Stage "STAGE 02: Buildup"
 Install-Chrome
+Set-ChromeDefaults
 Show-FileExtensions
 Show-HiddenFiles
 Disable-MouseAcceleration
@@ -627,6 +690,13 @@ if (Test-PathExists -Path $chromePaths) {
     Write-SummaryItem -Status "PASS" -Message "Chrome found"
 } else {
     Write-SummaryItem -Status "WARN" -Message "Chrome executable not found"
+}
+
+$chromeDefaultsXmlPath = Join-Path $env:TEMP "zerowin-default-apps.xml"
+if (Test-Path $chromeDefaultsXmlPath) {
+    Write-SummaryItem -Status "PASS" -Message "Chrome default associations XML found: $chromeDefaultsXmlPath"
+} else {
+    Write-SummaryItem -Status "INFO" -Message "Chrome default associations XML not found: $chromeDefaultsXmlPath"
 }
 
 $oneDriveSetupPaths = @(
