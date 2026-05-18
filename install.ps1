@@ -1,21 +1,51 @@
 $ErrorActionPreference = "Stop"
 
-$BaselineUrl = "https://raw.githubusercontent.com/r4kk0/windows-scrubber/main/tweaks/baseline.ps1"
-$HelpersUrl = "https://raw.githubusercontent.com/r4kk0/windows-scrubber/main/lib/helpers.ps1"
+$BaseUrl = "https://raw.githubusercontent.com/r4kk0/windows-scrubber/main"
 $DownloadRoot = Join-Path $env:TEMP "windows-scrubber"
 $TweaksRoot = Join-Path $DownloadRoot "tweaks"
 $LibRoot = Join-Path $DownloadRoot "lib"
+$ModulesRoot = Join-Path $DownloadRoot "modules"
 $BaselinePath = Join-Path $TweaksRoot "baseline.ps1"
-$HelpersPath = Join-Path $LibRoot "helpers.ps1"
+
+$RequiredFiles = @(
+    @{
+        RelativePath = "tweaks/baseline.ps1"
+        Url = "$BaseUrl/tweaks/baseline.ps1"
+        Path = $BaselinePath
+    },
+    @{
+        RelativePath = "lib/helpers.ps1"
+        Url = "$BaseUrl/lib/helpers.ps1"
+        Path = Join-Path $LibRoot "helpers.ps1"
+    },
+    @{
+        RelativePath = "modules/cleanout.ps1"
+        Url = "$BaseUrl/modules/cleanout.ps1"
+        Path = Join-Path $ModulesRoot "cleanout.ps1"
+    },
+    @{
+        RelativePath = "modules/buildup.ps1"
+        Url = "$BaseUrl/modules/buildup.ps1"
+        Path = Join-Path $ModulesRoot "buildup.ps1"
+    },
+    @{
+        RelativePath = "modules/optional.ps1"
+        Url = "$BaseUrl/modules/optional.ps1"
+        Path = Join-Path $ModulesRoot "optional.ps1"
+    },
+    @{
+        RelativePath = "modules/summary.ps1"
+        Url = "$BaseUrl/modules/summary.ps1"
+        Path = Join-Path $ModulesRoot "summary.ps1"
+    }
+)
 
 Write-Host "Windows Scrubber launcher"
-Write-Host "Baseline URL: $BaselineUrl"
-Write-Host "Helpers URL: $HelpersUrl"
+Write-Host "Staging root: $DownloadRoot"
 Write-Host "Baseline path: $BaselinePath"
-Write-Host "Helpers path: $HelpersPath"
 
 try {
-    foreach ($folder in @($DownloadRoot, $TweaksRoot, $LibRoot)) {
+    foreach ($folder in @($DownloadRoot, $TweaksRoot, $LibRoot, $ModulesRoot)) {
         if (-not (Test-Path $folder)) {
             Write-Host "Creating folder: $folder"
             New-Item -Path $folder -ItemType Directory -Force | Out-Null
@@ -25,20 +55,14 @@ try {
     Write-Host "Setting process execution policy bypass..."
     Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
-    Write-Host "Downloading baseline script..."
-    Invoke-WebRequest -Uri $BaselineUrl -OutFile $BaselinePath -UseBasicParsing -ErrorAction Stop
+    foreach ($file in $RequiredFiles) {
+        Write-Host "Downloading $($file.RelativePath)..."
+        Invoke-WebRequest -Uri $file.Url -OutFile $file.Path -UseBasicParsing -ErrorAction Stop
 
-    if (-not (Test-Path $BaselinePath)) {
-        Write-Error "Download did not create the expected baseline script: $BaselinePath"
-        exit 1
-    }
-
-    Write-Host "Downloading helper script..."
-    Invoke-WebRequest -Uri $HelpersUrl -OutFile $HelpersPath -UseBasicParsing -ErrorAction Stop
-
-    if (-not (Test-Path $HelpersPath)) {
-        Write-Error "Download did not create the expected helper script: $HelpersPath"
-        exit 1
+        if (-not (Test-Path $file.Path)) {
+            Write-Error "Download did not create the expected file: $($file.Path)"
+            exit 1
+        }
     }
 
     Write-Host "Running baseline script..."
