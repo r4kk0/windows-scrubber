@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$script:StartMenuCleanupRan = $false
+$script:StartMenuCleanupAttempted = $false
 $script:BaselineStoreBloatCleanupRan = $false
 
 function Test-IsAdmin {
@@ -288,7 +288,7 @@ function Disable-StartMenuRecommendations {
 
 function Reset-StartMenuLayout {
     Invoke-Tweak "Reset Start Menu layout" {
-        $script:StartMenuCleanupRan = $true
+        $script:StartMenuCleanupAttempted = $true
 
         try {
             Remove-RegistryKeyIfExists -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartPage"
@@ -300,7 +300,7 @@ function Reset-StartMenuLayout {
 
         if (Test-Path $cloudStorePath) {
             $startMenuKeys = Get-ChildItem -Path $cloudStorePath -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.PSChildName -match "start|tile|pinned" }
+                Where-Object { ($_.PSChildName -match "windows\.data") -and ($_.PSChildName -match "start|tile|pinned") }
 
             foreach ($key in $startMenuKeys) {
                 try {
@@ -313,7 +313,17 @@ function Reset-StartMenuLayout {
             Write-Host "INFO: Registry path does not exist: $cloudStorePath"
         }
 
-        Write-Host "INFO: Start Menu layout cleanup is best effort and may require sign out or restart."
+        Write-Host "INFO: Restarting Explorer to refresh Start menu and taskbar."
+
+        try {
+            Stop-Process -Name "explorer" -Force -ErrorAction Stop
+            Start-Process "explorer.exe"
+            Write-Host "PASS: Explorer restarted."
+        } catch {
+            Write-Skip "Could not restart Explorer: $($_.Exception.Message)"
+        }
+
+        Write-Host "INFO: Start Menu layout cleanup is best effort. Explorer restart, sign out, or reboot may be required before visual changes appear."
     }
 }
 
@@ -1007,8 +1017,8 @@ if ($xboxPackages -or $gameBarPackages) {
     Write-SummaryItem -Status "INFO" -Message "Xbox/Game Bar packages not found for current user"
 }
 
-if ($script:StartMenuCleanupRan) {
-    Write-SummaryItem -Status "PASS" -Message "Start menu cleanup ran"
+if ($script:StartMenuCleanupAttempted) {
+    Write-SummaryItem -Status "INFO" -Message "Start menu cleanup attempted; sign out/restart may be required"
 } else {
     Write-SummaryItem -Status "INFO" -Message "Start menu cleanup did not run"
 }
