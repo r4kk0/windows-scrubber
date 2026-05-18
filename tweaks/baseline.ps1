@@ -100,6 +100,7 @@ Remove-Edge
 Disable-AppAutoStartEntries
 
 Write-ScrubberStage "STAGE 02: Buildup"
+Set-WindowsDarkTheme
 Install-Chrome
 Install-7Zip
 Set-ChromeDefaults

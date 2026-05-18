@@ -174,8 +174,6 @@ function Set-WindowsScrubberDesktop {
         $wallpaperFolder = Join-Path $env:TEMP "windows-scrubber"
         $wallpaperPath = Join-Path $wallpaperFolder "wallpaper.png"
 
-        Set-WindowsDarkTheme
-
         Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideIcons" -Value 1
         Write-Host "PASS: Desktop icons hidden for current user."
 
