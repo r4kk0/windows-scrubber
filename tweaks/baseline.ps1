@@ -396,6 +396,140 @@ function Remove-OneDrive {
     }
 }
 
+function Get-EdgeExecutablePaths {
+    return @(
+        (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"),
+        (Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe")
+    )
+}
+
+function Test-EdgeExecutablePresent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Path
+    )
+
+    return (Test-PathExists -Path $Path)
+}
+
+function Stop-EdgeProcesses {
+    $edgeProcessNames = @(
+        "msedge",
+        "MicrosoftEdgeUpdate"
+    )
+
+    foreach ($processName in $edgeProcessNames) {
+        $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+
+        if ($processes) {
+            Write-Host "Stopping $processName..."
+            $processes | Stop-Process -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Host "INFO: $processName is not running."
+        }
+    }
+}
+
+function Invoke-EdgeWingetUninstall {
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Host "Trying winget uninstall for Microsoft Edge..."
+        $wingetOutput = & winget uninstall --id Microsoft.Edge --exact --silent --accept-source-agreements 2>&1
+        $wingetExitCode = $LASTEXITCODE
+
+        if ($wingetExitCode -eq 0) {
+            Write-Host "PASS: winget uninstall for Microsoft Edge completed successfully."
+        } else {
+            Write-Host "WARN: winget uninstall for Microsoft Edge exited with code $wingetExitCode."
+            if ($wingetOutput) {
+                Write-Host ($wingetOutput -join "`n")
+            }
+        }
+    } else {
+        Write-Host "INFO: winget was not found. Skipping winget uninstall for Microsoft Edge."
+    }
+}
+
+function Invoke-EdgeSetupUninstallers {
+    $edgeInstallerRoots = @(
+        (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application"),
+        (Join-Path $env:ProgramFiles "Microsoft\Edge\Application")
+    )
+
+    foreach ($root in $edgeInstallerRoots) {
+        if (-not (Test-Path $root)) {
+            Write-Host "INFO: Edge application path does not exist: $root"
+            continue
+        }
+
+        $setupFiles = Get-ChildItem -Path $root -Filter "setup.exe" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\Installer\setup.exe" }
+
+        if (-not $setupFiles) {
+            Write-Host "INFO: Edge setup uninstaller not found under: $root"
+            continue
+        }
+
+        foreach ($setupFile in $setupFiles) {
+            Write-Host "Running Edge setup uninstaller: $($setupFile.FullName)"
+
+            try {
+                $process = Start-Process -FilePath $setupFile.FullName -ArgumentList "--uninstall --system-level --verbose-logging --force-uninstall" -Wait -PassThru
+
+                if ($process.ExitCode -eq 0) {
+                    Write-Host "PASS: Edge setup uninstaller completed successfully."
+                } else {
+                    Write-Host "WARN: Edge setup uninstaller exited with code $($process.ExitCode): $($setupFile.FullName)"
+                }
+            } catch {
+                Write-Skip "Could not run Edge setup uninstaller: $($setupFile.FullName). $($_.Exception.Message)"
+            }
+        }
+    }
+}
+
+function Remove-EdgeShortcuts {
+    $shortcutPaths = @(
+        (Join-Path ([Environment]::GetFolderPath("Desktop")) "Microsoft Edge.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Microsoft Edge.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("StartMenu")) "Programs\Microsoft Edge.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("CommonStartMenu")) "Programs\Microsoft Edge.lnk"),
+        (Join-Path $env:AppData "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Microsoft Edge.lnk")
+    )
+
+    foreach ($shortcutPath in $shortcutPaths) {
+        if (Test-Path $shortcutPath) {
+            try {
+                Remove-Item -Path $shortcutPath -Force
+                Write-Host "Removed shortcut: $shortcutPath"
+            } catch {
+                Write-Skip "Could not remove shortcut: $shortcutPath. $($_.Exception.Message)"
+            }
+        } else {
+            Write-Host "INFO: Shortcut path does not exist: $shortcutPath"
+        }
+    }
+}
+
+function Remove-EdgeStartupEntries {
+    $edgeStartupNames = @(
+        "MicrosoftEdgeAutoLaunch",
+        "MicrosoftEdgeUpdate",
+        "Microsoft Edge"
+    )
+
+    foreach ($startupName in $edgeStartupNames) {
+        Remove-RegistryValueIfExists -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $startupName
+        Remove-RegistryValueIfExists -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $startupName
+    }
+}
+
+function Set-EdgePolicies {
+    Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "CreateDesktopShortcutDefault" -Value 0
+    Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "RemoveDesktopShortcutDefault" -Value 1
+    Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name "HideFirstRunExperience" -Value 1
+    Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name "ShowRecommendationsEnabled" -Value 0
+}
+
 function Remove-Edge {
     Invoke-Tweak "Remove Microsoft Edge" {
         if (-not (Test-IsAdmin)) {
@@ -403,90 +537,30 @@ function Remove-Edge {
             return
         }
 
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host "Trying winget uninstall for Microsoft Edge..."
-            $wingetOutput = & winget uninstall --id Microsoft.Edge --exact --silent --accept-source-agreements 2>&1
-            $wingetExitCode = $LASTEXITCODE
+        $edgeExecutablePaths = Get-EdgeExecutablePaths
 
-            if ($wingetExitCode -eq 0) {
-                Write-Host "winget uninstall for Microsoft Edge completed successfully."
+        foreach ($edgeExecutablePath in $edgeExecutablePaths) {
+            if (Test-Path $edgeExecutablePath) {
+                Write-Host "INFO: Edge executable found: $edgeExecutablePath"
             } else {
-                Write-Skip "winget uninstall for Microsoft Edge exited with code $wingetExitCode."
-                if ($wingetOutput) {
-                    Write-Host ($wingetOutput -join "`n")
-                }
+                Write-Host "INFO: Edge executable path does not exist: $edgeExecutablePath"
             }
+        }
+
+        Stop-EdgeProcesses
+        Invoke-EdgeWingetUninstall
+        Invoke-EdgeSetupUninstallers
+
+        if (Test-EdgeExecutablePresent -Path $edgeExecutablePaths) {
+            Write-Host "WARN: Edge executable still present after uninstall attempts."
+            Write-Host "INFO: Edge Application folder was not deleted."
         } else {
-            Write-Skip "winget was not found. Skipping winget uninstall for Microsoft Edge."
+            Write-Host "PASS: Edge executable is no longer found."
         }
 
-        $edgeInstallerRoots = @(
-            (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application"),
-            (Join-Path $env:ProgramFiles "Microsoft\Edge\Application")
-        )
-
-        foreach ($root in $edgeInstallerRoots) {
-            if (-not (Test-Path $root)) {
-                Write-Host "Edge application path not found: $root"
-                continue
-            }
-
-            $setupFiles = Get-ChildItem -Path $root -Filter "setup.exe" -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -like "*\Installer\setup.exe" }
-
-            foreach ($setupFile in $setupFiles) {
-                Write-Host "Running Edge setup uninstaller: $($setupFile.FullName)"
-
-                try {
-                    $process = Start-Process -FilePath $setupFile.FullName -ArgumentList "--uninstall --system-level --verbose-logging --force-uninstall" -Wait -PassThru
-
-                    if ($process.ExitCode -eq 0) {
-                        Write-Host "Edge setup uninstaller completed successfully."
-                    } else {
-                        Write-Skip "Edge setup uninstaller exited with code $($process.ExitCode): $($setupFile.FullName)"
-                    }
-                } catch {
-                    Write-Skip "Could not run Edge setup uninstaller: $($setupFile.FullName). $($_.Exception.Message)"
-                }
-            }
-        }
-
-        $shortcutPaths = @(
-            (Join-Path ([Environment]::GetFolderPath("Desktop")) "Microsoft Edge.lnk"),
-            (Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Microsoft Edge.lnk"),
-            (Join-Path ([Environment]::GetFolderPath("StartMenu")) "Programs\Microsoft Edge.lnk"),
-            (Join-Path ([Environment]::GetFolderPath("CommonStartMenu")) "Programs\Microsoft Edge.lnk"),
-            (Join-Path $env:AppData "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Microsoft Edge.lnk")
-        )
-
-        foreach ($shortcutPath in $shortcutPaths) {
-            if (Test-Path $shortcutPath) {
-                try {
-                    Remove-Item -Path $shortcutPath -Force
-                    Write-Host "Removed shortcut: $shortcutPath"
-                } catch {
-                    Write-Skip "Could not remove shortcut: $shortcutPath. $($_.Exception.Message)"
-                }
-            } else {
-                Write-Host "Shortcut not found: $shortcutPath"
-            }
-        }
-
-        $edgeStartupNames = @(
-            "MicrosoftEdgeAutoLaunch",
-            "MicrosoftEdgeUpdate",
-            "Microsoft Edge"
-        )
-
-        foreach ($startupName in $edgeStartupNames) {
-            Remove-RegistryValueIfExists -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $startupName
-            Remove-RegistryValueIfExists -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $startupName
-        }
-
-        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "CreateDesktopShortcutDefault" -Value 0
-        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "RemoveDesktopShortcutDefault" -Value 1
-        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name "HideFirstRunExperience" -Value 1
-        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name "ShowRecommendationsEnabled" -Value 0
+        Remove-EdgeShortcuts
+        Remove-EdgeStartupEntries
+        Set-EdgePolicies
     }
 }
 
