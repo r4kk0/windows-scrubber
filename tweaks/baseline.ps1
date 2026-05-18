@@ -320,60 +320,66 @@ function Reset-StartMenuLayout {
 function Remove-BaselineStoreBloat {
     Invoke-Tweak "Remove baseline Store bloat" {
         $script:BaselineStoreBloatCleanupRan = $true
+        $previousProgressPreference = $ProgressPreference
+        $ProgressPreference = "SilentlyContinue"
 
-        $targetPackageNames = @(
-            "Microsoft.LinkedIn",
-            "MicrosoftTeams",
-            "MSTeams",
-            "Microsoft.Getstarted",
-            "Microsoft.BingNews",
-            "Microsoft.BingWeather",
-            "Microsoft.WindowsFeedbackHub",
-            "Microsoft.MicrosoftSolitaireCollection",
-            "Clipchamp.Clipchamp"
-        )
+        try {
+            $targetPackageNames = @(
+                "Microsoft.LinkedIn",
+                "MicrosoftTeams",
+                "MSTeams",
+                "Microsoft.Getstarted",
+                "Microsoft.BingNews",
+                "Microsoft.BingWeather",
+                "Microsoft.WindowsFeedbackHub",
+                "Microsoft.MicrosoftSolitaireCollection",
+                "Clipchamp.Clipchamp"
+            )
 
-        foreach ($packageName in $targetPackageNames) {
-            $packages = Get-AppxPackage -Name $packageName -ErrorAction SilentlyContinue
+            foreach ($packageName in $targetPackageNames) {
+                $packages = Get-AppxPackage -Name $packageName -ErrorAction SilentlyContinue
 
-            if (-not $packages) {
-                Write-Host "INFO: Store app not installed for current user: $packageName"
-                continue
-            }
+                if (-not $packages) {
+                    Write-Host "INFO: Store app not installed for current user: $packageName"
+                    continue
+                }
 
-            foreach ($package in $packages) {
-                try {
-                    Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop
-                    Write-Host "PASS: Removed current-user Store app: $($package.Name)"
-                } catch {
-                    Write-Host "WARN: Could not remove current-user Store app $($package.Name): $($_.Exception.Message)"
+                foreach ($package in $packages) {
+                    try {
+                        Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop | Out-Null
+                        Write-Host "PASS: Removed current-user Store app: $($package.Name)"
+                    } catch {
+                        Write-Host "WARN: Could not remove current-user Store app $($package.Name): $($_.Exception.Message)"
+                    }
                 }
             }
-        }
 
-        if (-not (Test-IsAdmin)) {
-            Write-Skip "Administrator rights are required to remove provisioned Store bloat for future users."
-            return
-        }
-
-        $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-
-        foreach ($packageName in $targetPackageNames) {
-            $matches = $provisionedPackages | Where-Object { $_.DisplayName -eq $packageName }
-
-            if (-not $matches) {
-                Write-Host "INFO: Provisioned Store app not found: $packageName"
-                continue
+            if (-not (Test-IsAdmin)) {
+                Write-Skip "Administrator rights are required to remove provisioned Store bloat for future users."
+                return
             }
 
-            foreach ($package in $matches) {
-                try {
-                    Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null
-                    Write-Host "PASS: Removed provisioned Store app for future users: $($package.DisplayName)"
-                } catch {
-                    Write-Host "WARN: Could not remove provisioned Store app $($package.DisplayName): $($_.Exception.Message)"
+            $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+
+            foreach ($packageName in $targetPackageNames) {
+                $matches = $provisionedPackages | Where-Object { $_.DisplayName -eq $packageName }
+
+                if (-not $matches) {
+                    Write-Host "INFO: Provisioned Store app not found: $packageName"
+                    continue
+                }
+
+                foreach ($package in $matches) {
+                    try {
+                        Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null
+                        Write-Host "PASS: Removed provisioned Store app for future users: $($package.DisplayName)"
+                    } catch {
+                        Write-Host "WARN: Could not remove provisioned Store app $($package.DisplayName): $($_.Exception.Message)"
+                    }
                 }
             }
+        } finally {
+            $ProgressPreference = $previousProgressPreference
         }
     }
 }
@@ -756,66 +762,77 @@ function Remove-XboxGamingFeatures {
             return
         }
 
-        Set-RegistryDword -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_Enabled" -Value 0
-        Set-RegistryDword -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehaviorMode" -Value 2
-        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0
+        $previousProgressPreference = $ProgressPreference
+        $ProgressPreference = "SilentlyContinue"
 
-        if (Test-IsAdmin) {
-            Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR" -Name "AllowGameDVR" -Value 0
-        } else {
-            Write-Skip "Administrator rights are required for the HKLM Game DVR policy tweak."
-        }
+        try {
+            Set-RegistryDword -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_Enabled" -Value 0
+            Set-RegistryDword -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehaviorMode" -Value 2
+            Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0
 
-        $xboxPackagePatterns = @(
-            "Microsoft.Xbox*",
-            "Microsoft.GamingApp",
-            "Microsoft.XboxGamingOverlay",
-            "Microsoft.XboxGameOverlay",
-            "Microsoft.XboxIdentityProvider",
-            "Microsoft.XboxSpeechToTextOverlay"
-        )
-
-        foreach ($pattern in $xboxPackagePatterns) {
-            $packages = Get-AppxPackage -Name $pattern -ErrorAction SilentlyContinue
-
-            if (-not $packages) {
-                Write-Host "INFO: Xbox package not installed for current user: $pattern"
-                continue
+            if (Test-IsAdmin) {
+                Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR" -Name "AllowGameDVR" -Value 0
+            } else {
+                Write-Skip "Administrator rights are required for the HKLM Game DVR policy tweak."
             }
 
-            foreach ($package in $packages) {
-                try {
-                    Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop
-                    Write-Host "PASS: Removed current-user Xbox package: $($package.Name)"
-                } catch {
-                    Write-Host "WARN: Could not remove current-user Xbox package $($package.Name): $($_.Exception.Message)"
+            Write-Host "INFO: Microsoft.XboxGameCallableUI is a protected Windows component and will be left alone."
+
+            $xboxPackagePatterns = @(
+                "Microsoft.Xbox*",
+                "Microsoft.GamingApp",
+                "Microsoft.XboxGamingOverlay",
+                "Microsoft.XboxGameOverlay",
+                "Microsoft.XboxIdentityProvider",
+                "Microsoft.XboxSpeechToTextOverlay"
+            )
+
+            foreach ($pattern in $xboxPackagePatterns) {
+                $packages = Get-AppxPackage -Name $pattern -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -ne "Microsoft.XboxGameCallableUI" }
+
+                if (-not $packages) {
+                    Write-Host "INFO: Xbox package not installed for current user: $pattern"
+                    continue
+                }
+
+                foreach ($package in $packages) {
+                    try {
+                        Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop | Out-Null
+                        Write-Host "PASS: Removed current-user Xbox package: $($package.Name)"
+                    } catch {
+                        Write-Host "WARN: Could not remove current-user Xbox package $($package.Name): $($_.Exception.Message)"
+                    }
                 }
             }
-        }
 
-        if (-not (Test-IsAdmin)) {
-            Write-Skip "Administrator rights are required to remove provisioned Xbox packages for future users."
-            return
-        }
-
-        $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-
-        foreach ($pattern in $xboxPackagePatterns) {
-            $matches = $provisionedPackages | Where-Object { $_.DisplayName -like $pattern }
-
-            if (-not $matches) {
-                Write-Host "INFO: Provisioned Xbox package not found: $pattern"
-                continue
+            if (-not (Test-IsAdmin)) {
+                Write-Skip "Administrator rights are required to remove provisioned Xbox packages for future users."
+                return
             }
 
-            foreach ($package in $matches) {
-                try {
-                    Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null
-                    Write-Host "PASS: Removed provisioned Xbox package for future users: $($package.DisplayName)"
-                } catch {
-                    Write-Host "WARN: Could not remove provisioned Xbox package $($package.DisplayName): $($_.Exception.Message)"
+            $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+
+            foreach ($pattern in $xboxPackagePatterns) {
+                $matches = $provisionedPackages |
+                    Where-Object { ($_.DisplayName -like $pattern) -and ($_.DisplayName -ne "Microsoft.XboxGameCallableUI") }
+
+                if (-not $matches) {
+                    Write-Host "INFO: Provisioned Xbox package not found: $pattern"
+                    continue
+                }
+
+                foreach ($package in $matches) {
+                    try {
+                        Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null
+                        Write-Host "PASS: Removed provisioned Xbox package for future users: $($package.DisplayName)"
+                    } catch {
+                        Write-Host "WARN: Could not remove provisioned Xbox package $($package.DisplayName): $($_.Exception.Message)"
+                    }
                 }
             }
+        } finally {
+            $ProgressPreference = $previousProgressPreference
         }
     }
 }
@@ -829,17 +846,19 @@ function Show-OptionalModulesMenu {
 }
 
 function Invoke-OptionalModulesMenu {
-    Show-OptionalModulesMenu
-    $selection = Read-Host "Select optional module"
+    while ($true) {
+        Show-OptionalModulesMenu
+        $selection = Read-Host "Select optional module"
 
-    switch ($selection) {
-        "1" { Remove-XboxGamingFeatures }
-        "2" { Write-Host "INFO: Not implemented yet." }
-        "3" { Write-Host "INFO: Not implemented yet." }
-        "Q" { Write-Host "INFO: Optional modules skipped." }
-        "q" { Write-Host "INFO: Optional modules skipped." }
-        "" { Write-Host "INFO: Optional modules skipped." }
-        default { Write-Host "INFO: Invalid selection. Optional modules skipped." }
+        switch ($selection) {
+            "1" { Remove-XboxGamingFeatures }
+            "2" { Write-Host "INFO: Not implemented yet." }
+            "3" { Write-Host "INFO: Not implemented yet." }
+            "Q" { Write-Host "INFO: Optional modules skipped."; return }
+            "q" { Write-Host "INFO: Optional modules skipped."; return }
+            "" { Write-Host "INFO: Optional modules skipped."; return }
+            default { Write-Host "INFO: Invalid selection. Choose an option or press Enter to quit." }
+        }
     }
 }
 
