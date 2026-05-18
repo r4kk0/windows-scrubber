@@ -17,11 +17,11 @@ function Show-Welcome {
     Write-Host "Windows Scrubber"
     Write-Host "Fresh install cleanup + workstation setup"
     Write-Host ""
-    Write-Host "This script applies an opinionated baseline cleanup, installs basic tools, and then offers optional modules."
+    Write-Host "This will run the standard scrub, then offer optional cleanup tools."
     Write-Host "Review the README/source before running on important machines."
     Write-Host ""
 
-    $confirmation = Read-Host "Run the standard Windows Scrubber baseline now? (Y/n)"
+    $confirmation = Read-Host "Run the standard scrub now? (Y/n)"
 
     switch ($confirmation) {
         "" { return }
@@ -40,6 +40,20 @@ function Show-Welcome {
             exit 0
         }
     }
+}
+
+function Write-ScrubberStage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    $separator = "=" * 64
+
+    Write-Host ""
+    Write-Host $separator
+    Write-Host $Message
+    Write-Host $separator
 }
 
 function Disable-AdvertisingId {
@@ -1293,10 +1307,12 @@ function Disable-StoreAutoUpdates {
 }
 
 function Show-OptionalModulesMenu {
-    Write-Stage "OPTIONAL MODULES"
+    Write-ScrubberStage "Optional cleanup tools"
+    Write-Host "Choose an extra scrubber, or press Q to quit."
+    Write-Host ""
     Write-Host "1. Remove Xbox / Game Bar / Game DVR packages and disable capture features"
-    Write-Host "2. Aggressive Microsoft Store app cleanup"
-    Write-Host "3. Aggressive Edge cleanup placeholder"
+    Write-Host "2. Aggressive Microsoft Store app cleanup (coming soon)"
+    Write-Host "3. Aggressive Edge cleanup (coming soon)"
     Write-Host "4. Enable Remote Desktop"
     Write-Host "5. Configure automatic local sign-in"
     Write-Host "7. Configure no-sleep power plan"
@@ -1325,11 +1341,11 @@ function Invoke-OptionalModulesMenu {
 
 Show-Welcome
 
-Write-Stage "STAGE 00: Preflight"
+Write-ScrubberStage "STAGE 00: Preflight"
 Write-Host "Running as Administrator: $(Test-IsAdmin)"
 Write-Host "winget available: $([bool](Get-Command winget -ErrorAction SilentlyContinue))"
 
-Write-Stage "STAGE 01: Cleanout"
+Write-ScrubberStage "STAGE 01: Cleanout"
 Disable-AdvertisingId
 Disable-TailoredExperiences
 Disable-FeedbackPrompts
@@ -1350,7 +1366,7 @@ Remove-OneDrive
 Remove-Edge
 Disable-AppAutoStartEntries
 
-Write-Stage "STAGE 02: Buildup"
+Write-ScrubberStage "STAGE 02: Buildup"
 Install-Chrome
 Install-7Zip
 Set-ChromeDefaults
@@ -1362,7 +1378,7 @@ Prefer-IPv4OverIPv6
 Disable-TaskbarSearchIcon
 Disable-TaskbarTaskViewIcon
 
-Write-Stage "STAGE END: Summary"
+Write-ScrubberStage "STAGE END: Summary"
 
 if (Test-IsAdmin) {
     Write-SummaryItem -Status "PASS" -Message "Running as Administrator"
@@ -1610,5 +1626,9 @@ if ($script:BaselineStoreBloatCleanupRan) {
 } else {
     Write-SummaryItem -Status "INFO" -Message "Baseline Store bloat cleanup did not run"
 }
+
+Write-Host ""
+Write-Host "Standard scrub complete."
+Write-Host "You can now run optional cleanup tools."
 
 Invoke-OptionalModulesMenu
