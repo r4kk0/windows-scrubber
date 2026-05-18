@@ -66,18 +66,4 @@ Optional tools are not part of the default baseline, and the risky ones ask befo
 - Microsoft Store, App Installer/winget, common system apps, and protected Windows components are intentionally preserved.
 - Non-admin runs skip admin-only changes where possible.
 
-## Local Run
-
-From the repo root:
-
-```powershell
-.\install.ps1
-```
-
-Or run the baseline directly:
-
-```powershell
-.\tweaks\baseline.ps1
-```
-
 Have a look through the scripts before running them on a machine you care about. Tiny bit boring, very worth it.
