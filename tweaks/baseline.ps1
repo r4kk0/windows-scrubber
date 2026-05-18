@@ -259,6 +259,46 @@ function Disable-StoreConsumerChurn {
     }
 }
 
+function Disable-WindowsTipsAndSetupPrompts {
+    Invoke-Tweak "Disable Windows tips and setup prompts" {
+        $contentPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+        $contentValues = @{
+            "SubscribedContent-310093Enabled" = 0
+            "SubscribedContent-338387Enabled" = 0
+            "SubscribedContent-338388Enabled" = 0
+            "SubscribedContent-338389Enabled" = 0
+            "SubscribedContent-338393Enabled" = 0
+            "SubscribedContent-353694Enabled" = 0
+            "SubscribedContent-353696Enabled" = 0
+            SoftLandingEnabled = 0
+            RotatingLockScreenEnabled = 0
+            RotatingLockScreenOverlayEnabled = 0
+            SystemPaneSuggestionsEnabled = 0
+            ContentDeliveryAllowed = 0
+        }
+
+        foreach ($name in $contentValues.Keys) {
+            Set-RegistryDword -Path $contentPath -Name $name -Value $contentValues[$name]
+        }
+
+        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" -Name "ScoobeSystemSettingEnabled" -Value 0
+        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_AccountNotifications" -Value 0
+        Write-Host "PASS: Current-user Windows tips and setup prompt settings applied."
+
+        if (-not (Test-IsAdmin)) {
+            Write-Skip "Administrator rights are required for HKLM Windows tips/setup prompt policies."
+            return
+        }
+
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Name "DisableWindowsSpotlightFeatures" -Value 1
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Name "DisableWindowsConsumerFeatures" -Value 1
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Name "DisableSoftLanding" -Value 1
+        Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "DisableLogonBackgroundImage" -Value 0
+        Write-Host "PASS: HKLM Windows tips and setup prompt policies applied."
+        Write-Host "INFO: Windows Update, Microsoft Store, and installed apps were not disabled or removed."
+    }
+}
+
 function Disable-LocationTracking {
     Invoke-Tweak "Disable Location Tracking" {
         $userPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
@@ -1397,6 +1437,7 @@ Disable-FeedbackPrompts
 Disable-ActivityHistory
 Disable-ConsumerFeatures
 Disable-StoreConsumerChurn
+Disable-WindowsTipsAndSetupPrompts
 Disable-StoreAutoUpdates
 Optimize-WindowsSearchIndexing
 Disable-LocationTracking
@@ -1633,6 +1674,13 @@ if (($cloudContentPolicy.DisableWindowsConsumerFeatures -eq 1) -or (($contentDel
     Write-SummaryItem -Status "PASS" -Message "Consumer app provisioning cleanup appears applied"
 } else {
     Write-SummaryItem -Status "INFO" -Message "Consumer app provisioning cleanup not fully detected"
+}
+
+$userProfileEngagement = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" -ErrorAction SilentlyContinue
+if (($userProfileEngagement.ScoobeSystemSettingEnabled -eq 0) -and ($contentDeliverySettings.SoftLandingEnabled -eq 0)) {
+    Write-SummaryItem -Status "PASS" -Message "Windows tips/setup prompts cleanup appears applied"
+} else {
+    Write-SummaryItem -Status "INFO" -Message "Windows tips/setup prompts cleanup not fully detected"
 }
 
 $storePolicy = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore" -ErrorAction SilentlyContinue
