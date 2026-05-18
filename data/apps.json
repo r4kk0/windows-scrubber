@@ -1,0 +1,25 @@
+{
+  "Core": [
+    { "id": "Google.Chrome", "name": "Google Chrome" },
+    { "id": "Discord.Discord", "name": "Discord" },
+    { "id": "7zip.7zip", "name": "7-Zip" },
+    { "id": "clsid2.mpc-hc", "name": "MPC-HC" }
+  ],
+  "Gaming": [
+    { "id": "Valve.Steam", "name": "Steam" }
+  ],
+  "Repair": [
+    { "id": "TechPowerUp.GPU-Z", "name": "GPU-Z" },
+    { "id": "REALiX.HWiNFO", "name": "HWiNFO" },
+    { "id": "CPUID.CPU-Z", "name": "CPU-Z" }
+  ],
+  "StressTest": [
+    { "id": "Unigine.HeavenBenchmark", "name": "Unigine Heaven Benchmark" },
+    { "id": "OCBase.OCCT", "name": "OCCT" }
+  ],
+  "Dev": [
+    { "id": "Microsoft.VisualStudioCode", "name": "Visual Studio Code" },
+    { "id": "Git.Git", "name": "Git" },
+    { "id": "Microsoft.PowerShell", "name": "PowerShell 7" }
+  ]
+}
