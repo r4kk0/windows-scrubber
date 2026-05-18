@@ -776,10 +776,10 @@ function Prefer-IPv4OverIPv6 {
 function Remove-XboxGamingFeatures {
     Invoke-Tweak "Remove Xbox / Game Bar / Game DVR features" {
         Write-Host "WARN: This may remove Xbox apps, Game Bar, and recording/capture features."
-        $confirmation = Read-Host "Type REMOVE to continue"
+        $confirmation = Read-Host "Are you sure? This may remove Game Bar recording/capture features. (y/N)"
 
-        if ($confirmation -ne "REMOVE") {
-            Write-Skip "Xbox / Game Bar removal was not confirmed."
+        if ($confirmation -notin @("y", "Y")) {
+            Write-Host "INFO: Xbox / Game Bar removal cancelled."
             return
         }
 
