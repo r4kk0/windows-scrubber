@@ -1332,9 +1332,9 @@ function Invoke-OptionalModulesMenu {
             "4" { Enable-RemoteDesktop }
             "5" { Invoke-AutoLogonMenu }
             "7" { Set-NoSleepPowerPlan }
-            "Q" { Write-Host "INFO: Optional modules skipped."; return }
-            "q" { Write-Host "INFO: Optional modules skipped."; return }
-            "" { Write-Host "INFO: Optional modules skipped."; return }
+            "Q" { Write-Host "INFO: See you next time! :)"; return }
+            "q" { Write-Host "INFO: See you next time! :)"; return }
+            "" { Write-Host "INFO: See you next time! :)"; return }
             default { Write-Host "INFO: Invalid selection. Choose an option or press Enter to quit." }
         }
     }
