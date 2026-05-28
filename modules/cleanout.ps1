@@ -583,12 +583,7 @@ function Optimize-WindowsSearchIndexing {
         }
 
         Write-Host "WARN: This reduces Windows indexing scope. It should improve background load, but file search may become less complete."
-        $confirmation = Read-Host "Optimise Windows Search indexing? (y/N)"
-
-        if ($confirmation -notin @("y", "Y")) {
-            Write-Host "INFO: Windows Search indexing optimisation cancelled."
-            return
-        }
+        Write-Host "INFO: Applying Windows Search indexing optimisation without prompting."
 
         $script:SearchIndexingOptimizationAttempted = $true
         $searchService = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
@@ -641,25 +636,7 @@ function Optimize-WindowsSearchIndexing {
         # Avoid indexing uncached Exchange folders when applicable.
         Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "PreventIndexingUncachedExchangeFolders" -Value 1
 
-        $rebuild = Read-Host "Rebuild Windows Search index now? This can take time. (y/N)"
-
-        if ($rebuild -notin @("y", "Y")) {
-            Write-Host "INFO: Windows Search index rebuild skipped."
-            return
-        }
-
-        if (-not $searchService) {
-            Write-Host "INFO: Windows Search service was not found; index restart skipped."
-            return
-        }
-
-        try {
-            Stop-Service -Name "WSearch" -ErrorAction Stop
-            Start-Service -Name "WSearch" -ErrorAction Stop
-            Write-Host "PASS: Windows Search service restarted for index rebuild."
-        } catch {
-            Write-Host "WARN: Could not restart Windows Search service: $($_.Exception.Message)"
-        }
+        Write-Host "INFO: Windows Search index rebuild skipped to keep cleanup non-interactive."
     }
 }
 
@@ -671,12 +648,7 @@ function Disable-StoreAutoUpdates {
         }
 
         Write-Host "WARN: Disabling Store auto-updates can reduce background churn, but may leave Store apps/App Installer components outdated."
-        $confirmation = Read-Host "Disable Microsoft Store auto-updates? (y/N)"
-
-        if ($confirmation -notin @("y", "Y")) {
-            Write-Host "INFO: Microsoft Store auto-update change cancelled."
-            return
-        }
+        Write-Host "INFO: Applying Microsoft Store auto-update policy without prompting."
 
         try {
             Set-RegistryDword -Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore" -Name "AutoDownload" -Value 2

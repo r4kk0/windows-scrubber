@@ -325,12 +325,7 @@ function Set-NoSleepPowerPlan {
         }
 
         Write-Host "WARN: This disables sleep, display timeout, and hibernation. Best for desktops/bench machines."
-        $confirmation = Read-Host "Apply no-sleep power settings? (y/N)"
-
-        if ($confirmation -notin @("y", "Y")) {
-            Write-Host "INFO: No-sleep power plan setup cancelled."
-            return
-        }
+        Write-Host "INFO: Applying no-sleep power settings without prompting."
 
         Invoke-PowerCfgCommand -Description "Hibernation disabled" -Arguments @("/hibernate", "off")
         Invoke-PowerCfgCommand -Description "AC sleep timeout disabled" -Arguments @("/change", "standby-timeout-ac", "0")
@@ -356,7 +351,6 @@ function Show-OptionalModulesMenu {
     Write-Host "[4] Enable Remote Desktop"
     Write-Host "[5] Configure automatic local sign-in"
     Write-Host "[6] Reserved / coming soon"
-    Write-Host "[7] Configure no-sleep power plan"
     Write-Host "[Q] Quit"
 }
 
@@ -371,7 +365,6 @@ function Invoke-OptionalModulesMenu {
             "3" { Write-Host "INFO: Not implemented yet." }
             "4" { Enable-RemoteDesktop }
             "5" { Invoke-AutoLogonMenu }
-            "7" { Set-NoSleepPowerPlan }
             "Q" { Write-Host "INFO: See you next time! :)"; return }
             "q" { Write-Host "INFO: See you next time! :)"; return }
             "" { Write-Host "INFO: See you next time! :)"; return }

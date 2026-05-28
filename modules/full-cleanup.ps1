@@ -30,6 +30,7 @@ function Invoke-FullCleanup {
     Show-FileExtensions
     Show-HiddenFiles
     Disable-MouseAcceleration
+    Set-NoSleepPowerPlan
     Prefer-IPv4OverIPv6
     Disable-TaskbarSearchIcon
     Disable-TaskbarTaskViewIcon

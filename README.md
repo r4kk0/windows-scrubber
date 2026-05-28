@@ -46,16 +46,15 @@ Windows Scrubber exits cleanly with `Please run PowerShell as Administrator.` if
 2. Install apps
 3. Enable Remote Desktop
 4. Configure automatic local sign-in
-5. Configure no-sleep power plan
 
 The full cleanup / scrubber flow runs the existing stages:
 
 - `STAGE 00: Preflight`: checks Administrator status and `winget`.
 - `STAGE 01: Cleanout`: applies privacy, search, recommendations, Start menu, Store bloat, Widgets, Copilot, OneDrive, Edge, startup, Store auto-update, and Windows Search indexing cleanup.
-- `STAGE 02: Buildup`: sets desktop/wallpaper and dark theme preferences, shows file extensions and hidden files, disables mouse acceleration, prefers IPv4, and applies taskbar preferences.
+- `STAGE 02: Buildup`: sets desktop/wallpaper and dark theme preferences, shows file extensions and hidden files, disables mouse acceleration, configures a no-sleep power plan, prefers IPv4, and applies taskbar preferences.
 - `STAGE END: Summary`: prints PASS/WARN/INFO checks for the important bits.
 
-The cleanup flow does not install apps. Some changes need Explorer restart, sign out, or a reboot before Windows fully shows them.
+The cleanup flow does not install apps and does not stop for yes/no prompts. Some changes need Explorer restart, sign out, or a reboot before Windows fully shows them.
 
 The install apps option installs:
 
@@ -64,7 +63,7 @@ The install apps option installs:
 - AltDrag
 - Discord
 
-The Remote Desktop, automatic local sign-in, and no-sleep power plan options are available directly from the main menu. Automatic local sign-in can enable or disable the saved local login configuration.
+The Remote Desktop and automatic local sign-in options are available directly from the main menu. Automatic local sign-in can enable or disable the saved local login configuration.
 
 ## Utility Options
 
@@ -72,7 +71,6 @@ The starting menu also includes utility tools:
 
 - Enable Remote Desktop
 - Configure automatic local sign-in, including local/offline account boot sign-in and wake sign-in requirements
-- Configure a no-sleep power plan
 - Leave the menu with `Q`, `q`, or Enter
 
 Utility tools are not part of the cleanup flow, and the risky ones ask before doing anything exciting.
