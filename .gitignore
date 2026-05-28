@@ -1,5 +1,6 @@
 logs/*
 !logs/.gitkeep
+dev-notes/
 
 *.log
 *.tmp
