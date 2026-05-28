@@ -45,8 +45,9 @@ Windows Scrubber exits cleanly with `Please run PowerShell as Administrator.` if
 1. Full cleanup / scrubber flow
 2. Install apps
 3. Install PC testing utilities
-4. Enable Remote Desktop
-5. Configure automatic local sign-in
+4. Install games
+5. Enable Remote Desktop
+6. Configure automatic local sign-in
 
 The full cleanup / scrubber flow runs the existing stages:
 
@@ -73,6 +74,15 @@ The PC testing utilities option installs:
 - FurMark v1
 - Cinebench R23
 - OCCT
+
+The games option installs:
+
+- Steam
+- Epic Games Launcher
+- Wallpaper Engine via Steam
+- Guild Wars 2 via Steam
+
+Riot Games Client is noted but skipped because there is no reliable standalone winget package for the Riot client.
 
 The Remote Desktop and automatic local sign-in options are available directly from the main menu. Automatic local sign-in can enable or disable the saved local login configuration.
 

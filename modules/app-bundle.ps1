@@ -60,12 +60,41 @@ function Install-AppList {
     }
 }
 
+function Start-SteamAppInstall {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SteamAppId
+    )
+
+    Invoke-Tweak "Open Steam install for $AppName" {
+        $steamUri = "steam://install/$SteamAppId"
+
+        try {
+            Start-Process $steamUri
+            Write-Host "INFO: Opened Steam install prompt for $AppName."
+            Write-Host "INFO: Steam may require sign-in and user confirmation before downloading."
+        } catch {
+            Write-Host "WARN: Could not open Steam install prompt for ${AppName}: $($_.Exception.Message)"
+        }
+    }
+}
+
 function Get-WorkstationApps {
     return @(
         @{ Name = "Google Chrome"; Id = "Google.Chrome" },
         @{ Name = "7-Zip"; Id = "7zip.7zip" },
         @{ Name = "AltDrag"; Id = "AltDrag.AltDrag" },
         @{ Name = "Discord"; Id = "Discord.Discord" }
+    )
+}
+
+function Get-GameLauncherApps {
+    return @(
+        @{ Name = "Steam"; Id = "Valve.Steam" },
+        @{ Name = "Epic Games Launcher"; Id = "EpicGames.EpicGamesLauncher" }
     )
 }
 
@@ -87,6 +116,18 @@ function Install-WorkstationAppBundle {
 
 function Install-PcTestingUtilityBundle {
     Install-AppList -Title "Install PC testing utilities" -Apps (Get-PcTestingUtilityApps)
+}
+
+function Install-GameBundle {
+    Install-AppList -Title "Install games" -Apps (Get-GameLauncherApps)
+
+    Start-SteamAppInstall -AppName "Wallpaper Engine" -SteamAppId "431960"
+    Start-SteamAppInstall -AppName "Guild Wars 2" -SteamAppId "1284210"
+
+    Write-Host ""
+    Write-Host "INFO: Riot Games Client skipped."
+    Write-Host "INFO: No reliable standalone winget package for the Riot Games Client was found."
+    Write-Host "INFO: Install a specific Riot game manually if you want the Riot client."
 }
 
 function Install-AppBundle {

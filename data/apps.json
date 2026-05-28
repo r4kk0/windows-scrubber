@@ -6,7 +6,8 @@
     { "id": "Discord.Discord", "name": "Discord" }
   ],
   "Gaming": [
-    { "id": "Valve.Steam", "name": "Steam" }
+    { "id": "Valve.Steam", "name": "Steam" },
+    { "id": "EpicGames.EpicGamesLauncher", "name": "Epic Games Launcher" }
   ],
   "Repair": [
     { "id": "TechPowerUp.GPU-Z", "name": "GPU-Z" },
